@@ -2,9 +2,9 @@
 import json
 import os
 import re  # 正規表現モジュールをインポート
-import urllib.request
 
-import boto3  # type: ignore
+import boto3
+from botocore.exceptions import ClientError
 
 
 # Lambda コンテキストからリージョンを抽出する関数
@@ -21,9 +21,6 @@ bedrock_client = None
 
 # モデルID
 MODEL_ID = os.environ.get("MODEL_ID", "us.amazon.nova-lite-v1:0")
-
-# 環境変数からカスタムモデルAPIのURLを取得
-MODEL_API_URL = os.environ.get("MODEL_API_URL")
 
 
 def lambda_handler(event, context):
@@ -52,43 +49,6 @@ def lambda_handler(event, context):
 
         print("Processing message:", message)
         print("Using model:", MODEL_ID)
-
-        # Custom model API call if MODEL_API_URL is set
-        if MODEL_API_URL:
-            # Build and send request to custom FastAPI model API
-            payload = json.dumps({"prompt": message}).encode("utf-8")
-            req = urllib.request.Request(
-                MODEL_API_URL,
-                data=payload,
-                headers={"Content-Type": "application/json"},
-                method="POST",
-            )
-            with urllib.request.urlopen(req) as resp:
-                resp_data = json.load(resp)
-            assistant_response = resp_data.get("response")
-            if assistant_response is None:
-                raise Exception("モデルAPIからの応答に 'response' が含まれていません")
-            # 会話履歴にアシスタントの応答を追加
-            messages = conversation_history.copy()
-            messages.append({"role": "user", "content": message})
-            messages.append({"role": "assistant", "content": assistant_response})
-            print("Assistant response:", assistant_response)
-            return {
-                "statusCode": 200,
-                "headers": {
-                    "Content-Type": "application/json",
-                    "Access-Control-Allow-Origin": "*",
-                    "Access-Control-Allow-Headers": "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token",
-                    "Access-Control-Allow-Methods": "OPTIONS,POST",
-                },
-                "body": json.dumps(
-                    {
-                        "success": True,
-                        "response": assistant_response,
-                        "conversationHistory": messages,
-                    }
-                ),
-            }
 
         # 会話履歴を使用
         messages = conversation_history.copy()
